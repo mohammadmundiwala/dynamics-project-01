@@ -6,7 +6,7 @@ if you read this, add your favorite greek letter.
 
 $\xi$ (Mo)
 
-
+$\psi$ (John)
 
 -------------------------------------------------------------
 | task item | progress note | completed (Y/N)|
@@ -14,3 +14,5 @@ $\xi$ (Mo)
 | learn what is pendulum      |                |              |
 |           |                |              |
 |           |                |              |
+
+
