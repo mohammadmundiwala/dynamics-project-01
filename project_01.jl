@@ -48,16 +48,27 @@ import Latexify
 default(fontfamily = "Computer Modern", linewidth = 2, size = (800, 600))
 
 # ╔═╡ 91003e71-8208-43d3-93be-dd2c141c37b5
-md"""# Defining Coordinate System
+md"""# Defining a Coordinate System
 
-We will start by defining our coordinate system. We will have 2 coordinate systems, the rotating frame, which is the $x'-z'$ plane which we can treat as a 2D coordinate system since the pendulum will always swing in said frame.
+To solve this problem, we will use two coordinate systems: a fixed frame and a rotating frame attached to the spinning structure. The rotating frame defines the $x'-z'$ plane in which the pendulum oscillates about.
 
-The angle $\theta$ is relative to the vertical in the rotating frame (i.e. the angle in a traditional pendulum problem)
+###### Angle Definitions:
 
-The angle $\phi$ is the angle at which the pendulum's $x'-z'$ plane is rotated from the positive $x$-axis.
+**$\theta$** is the vertical angle in the rotating frame (i.e., the angle in a traditional pendulum problem).
 
-The angular speed $\Omega$ is the speed at which $\phi$ is changing.
+**$\phi$** is the angle at which the pendulum's $x'-z'$ plane is rotated from the positive $x$-axis.
 
+**$\Omega$** is the rate of change of $\phi$.
+"""
+
+# ╔═╡ 10a5cd81-cf5d-43f0-ac36-413883e8edc6
+md"""## Symbolic Variables and Parameters
+The Lagrangian requires both velocity and acceleration, thus we define the first and second time derivatives of $\theta$ symbolically.
+
+Rotation angle, $\phi$, is given by:
+$\phi = \Omega t$, which assumes a constant rotation rate.
+
+The code block below incorporates these ideas.
 """
 
 # ╔═╡ 910c7d40-5d28-448e-aaf7-486bb000f478
@@ -70,10 +81,11 @@ begin
 	θ_dot = D(θ)
 	θ_dot_dot = D(D(θ))
 	φ = Ω * t
-end
+end;
 
-# ╔═╡ e28f72c0-7df2-4029-ab2a-4f21f2bade62
+# ╔═╡ 431af16c-4fc6-4132-bb2a-d1b3d8cb7449
 md"""
+### Position Vectors
 Treating the top of the pendulum as $(0,0)$ in the rotating frame. Then the rotating position vector is:
 
 $\vec{r}_{rot} = \begin{bmatrix} L\sin(\theta)\cos(\phi) \\ L\sin(\theta)\sin(\phi) \\ -L\cos(\theta)\end{bmatrix}$
@@ -102,28 +114,35 @@ $\vec{r} = \vec{r}_{rot}+\vec{r}_0$
 # ╔═╡ 21a2c22e-99a7-46b5-b898-22028948e114
 r = r_rot .+ r_0
 
-# ╔═╡ 2c97d2eb-070c-499f-8bbc-9f650953ccd1
+# ╔═╡ 3d6eba50-ea46-477f-a0a8-3540b4347613
 md"""
-The Lagrangian is:
+## The Lagrangian
+
+The Lagrangian \(L\) is defined as the difference between kinetic energy,$T$, and potential energy,$V$.
 
 $L = T - V$
 
-$T = \frac{1}{2}mv^2$
+Where:
 
-$V = mgh$
-"""
+$T = \frac{1}{2} mv^2$
 
-# ╔═╡ 9a46c115-04c9-42cc-9592-5f9d08014735
-md"""
+$V = m g z$
+
+Note that these equations can be rewritten to cater to this problem using the following:
+
 $h = z = h_1 - L\cos(\theta)$
 
 $v = \frac{d\vec{r}}{dt}$
+Thus:
 
-$T = \frac{1}{2}m\left(\frac{d\vec{r}}{dt} \cdot \frac{d\vec{r}}{dt}\right)$
+$L=\frac{1}{2}m\left(\frac{d\vec{r}}{dt} \cdot \frac{d\vec{r}}{dt}\right)-m g (h_1-Lcos(\theta))$
+
+
+The Lagrangian will be used in the Euler-Lagrange equation. The code block below derives this in expanded form.
 """
 
 # ╔═╡ 61500b9e-061e-4412-9fa7-9931ad27bee4
-# defining lagrangian stuff
+# defining lagrangian
 begin
 	h = r[3]
 	v = D.(r)
@@ -133,20 +152,37 @@ begin
 end
 
 # ╔═╡ 107838fd-dc24-4b35-bc0f-531cfc6362f2
-md"""Now with our Lagrangian, we can find the path of least action using the Euler-Lagrange equation:
+md"""
+## Euler-Lagrange Equation
+Now with our Lagrangian, we can find the path of least action using the Euler-Lagrange equation:
 
 $\frac{d}{dt}\left( \frac{d L}{d \dot{\theta}} \right) - \frac{d L}{d \theta}= 0$
 
 """
 
 # ╔═╡ 242302eb-fe7e-4c20-83a2-f5a976fbbac9
-# performing euler-lagrange equation stuff
+# performing euler-lagrange equation
 begin
 	dL_dθ = Symbolics.derivative(Lag, θ)
 	dL_dθ_dot = Symbolics.derivative(Lag, θ_dot)
 	el_eq = expand_derivatives(D(dL_dθ_dot) - dL_dθ)
 	sol = simplify(solve_for(el_eq ~ 0, θ_dot_dot))
 end
+
+# ╔═╡ 5372ab06-f49d-4c3d-b8ed-b90b330b06c3
+md"""
+## Numerical Simulation
+
+We define the state vector as:
+-  $x_1 = θ$
+-  $x_2 = θ_{dot}$
+
+The ODE system is defined and solved for:
+- Slow rotation: Ω = 0.5 rad/s
+- Fast rotation: Ω = 8 rad/s
+
+We use 4th Order Runge-Kutta, RK4, in the ODE solver.
+"""
 
 # ╔═╡ 28406b28-a701-4b46-8620-5df4a5dc70ae
 # setting up numerical solver
@@ -159,14 +195,13 @@ begin
 	]
 	@named sys = ODESystem(eqs, t, [x1, x2], [L, g, Ω, m, w1, h1])
 	sys = structural_simplify(sys)
-end
+end #
 
 # ╔═╡ 8776d0cc-f9fb-43ee-babe-b77ec4f189ce
 # setting up initial conditions and running ODE solver
-
 begin
     u0    = [x1 => 0.5, x2 => 0.0]   # initial θ and θ_dot
-    tspan = (0.0, 10.0)
+    tspan = (0.0, 13.0) #time interval. I changed this to 0-13s (roughly 1 full rotation according to .gif) - JG
 
     p_vals = Dict(L => 0.15, g => 9.8, Ω => 2.0, m => 0.1, w1 => 0.1, h1 => 0.2)
 
@@ -176,12 +211,18 @@ begin
     prob_slow = ODEProblem(sys, merge(Dict(u0), p_slow), tspan)
     prob_fast = ODEProblem(sys, merge(Dict(u0), p_fast), tspan)
 
-    sol_slow = solve(prob_slow, Rodas5(); reltol=1e-6, abstol=1e-8, saveat=0.0333)
-    sol_fast = solve(prob_fast, Rodas5(); reltol=1e-6, abstol=1e-8, saveat=0.0333)
+    sol_slow = solve(prob_slow, RK4(); reltol=1e-6, abstol=1e-8, saveat=0.0333)
+    sol_fast = solve(prob_fast, RK4(); reltol=1e-6, abstol=1e-8, saveat=0.0333)
 
     # optional: pick which one you want the rest of the notebook to use
     solution = sol_slow   # or sol_fast
-end
+end; #added ; here to toggle output - JG
+
+# ╔═╡ d7e26221-4d25-465c-96d7-d3c10261c13b
+md"""
+##### Plotting
+Plots include angle and angular velocity as a function of time.
+"""
 
 # ╔═╡ 1a7f4f86-3dc5-4bd3-a25a-4a8f6a96e14e
 Plots.plot(solution, idxs=[x1], xlabel="t", ylabel="θ (rad)", title="Angle vs. Time")
@@ -189,18 +230,21 @@ Plots.plot(solution, idxs=[x1], xlabel="t", ylabel="θ (rad)", title="Angle vs. 
 # ╔═╡ 3b72fdac-c439-4755-b501-dc1de46f4414
 Plots.plot(solution, idxs=[x2], xlabel="t", ylabel="θ/s (rad/sec)", title="Angular Velocity vs. Time")
 
+# ╔═╡ 68bf1ff8-9698-4f89-8198-4c68cfd6adbc
+md"""
+##### .gif Generation
+"""
+
 # ╔═╡ fcd29939-01e8-42ae-8fef-f70ca60eebef
-begin # Need everything numerically for graphing and stuff
+begin # Need everything numerically for gif generation
 	θ_vals = solution[x1]
 	t_vals = solution.t
 	p_use = p_slow      
 	φ_vals = p_use[Ω] .* t_vals
 	
-
 	r_x = p_vals[L] .* sin.(θ_vals) .*  cos.(φ_vals)  .+ p_vals[w1] .* cos.(φ_vals)
 	r_y = p_vals[L] .*  sin.(θ_vals)  .* sin.(φ_vals) .+ p_vals[w1] .* sin.(φ_vals)
 	r_z = -p_vals[L] .* cos.(θ_vals) .+ p_vals[h1]
-
 
 	frame_top_x_values = p_vals[w1] .* cos.(φ_vals)
 	frame_top_y_values = p_vals[w1] .* sin.(φ_vals)
@@ -209,73 +253,47 @@ end
 
 # ╔═╡ ce3510bf-40ff-40fb-8394-a22fe3eebc48
 begin
-	max_radius = p_vals[L] + p_vals[w1]
+    max_radius = p_vals[L] + p_vals[w1]
 
-	pendulum_animation = @animate for index in eachindex(t_vals)
-	    # Static vertical frame: from (0,0,0) up to (0,0,h1)
-	    vertical_x = [0.0, 0.0]
-	    vertical_y = [0.0, 0.0]
-	    vertical_z = [0.0, p_vals[h1]]
-	
-	    # Rotating horizontal arm: from top of frame to moving pivot
-	    arm_x = [0.0, frame_top_x_values[index]]
-	    arm_y = [0.0, frame_top_y_values[index]]
-	    arm_z = [p_vals[h1], frame_top_z_values[index]]
-	
-	    # Pendulum rod: from moving pivot to bob
-	    rod_x = [frame_top_x_values[index], r_x[index]]
-	    rod_y = [frame_top_y_values[index], r_y[index]]
-	    rod_z = [frame_top_z_values[index], r_z[index]]
+    pendulum_animation = @animate for index in eachindex(t_vals)
+        vertical_x = [0.0, 0.0]
+        vertical_y = [0.0, 0.0]
+        vertical_z = [0.0, p_vals[h1]]
 
+        arm_x = [0.0, frame_top_x_values[index]]
+        arm_y = [0.0, frame_top_y_values[index]]
+        arm_z = [p_vals[h1], frame_top_z_values[index]]
+
+        rod_x = [frame_top_x_values[index], r_x[index]]
+        rod_y = [frame_top_y_values[index], r_y[index]]
+        rod_z = [frame_top_z_values[index], r_z[index]]
+
+        trace_x = r_x[1:index]
+        trace_y = r_y[1:index]
+        trace_z = r_z[1:index]
+
+        plot3d(
+            trace_x, trace_y, trace_z;
+            label="Trace",
+            linestyle=:dot,
+            linecolor=:blue,
+            linewidth=2,
+            xlim=(-max_radius, max_radius),
+            ylim=(-max_radius, max_radius),
+            zlim=(0.0, p_vals[h1] + p_vals[L] + 0.1),
+            aspect_ratio=:equal,
+            xlabel="x",
+            ylabel="y",
+            zlabel="z",
+            title="3D Pendulum on Rotating Frame (t = $(round(t_vals[index]; digits=2)) s)"
+        )
 		
-		trace_x = r_x[1:index]
-		trace_y = r_y[1:index]
-		trace_z = r_z[1:index]
-		
-		plot3d(
-			trace_x, trace_y, trace_z;
-			label      = "Trace",
-			linestyle  = :dot,
-			linecolor  = :blue,
-			linewidth  = 2,
-			xlim       = (-max_radius, max_radius),
-			ylim       = (-max_radius, max_radius),
-			zlim       = (0.0, p_vals[h1] + p_vals[L] + 0.1),
-			aspect_ratio = :equal,
-			xlabel     = "x",
-			ylabel     = "y",
-			zlabel     = "z",
-			title      = "3D Pendulum on Rotating Frame (t = $(round(t_vals[index]; digits = 2)) s)",
-		)
+		plot3d!(rod_x, rod_y, rod_z; label="Pendulum", linecolor=:green, linewidth=3)
+		plot3d!(vertical_x, vertical_y, vertical_z; label="Frame", linecolor=:black, linewidth=3)
+		scatter3d!([r_x[index]], [r_y[index]], [r_z[index]]; label="Ball", markercolor=:red, markersize=6)
 
-	
-	    plot3d!(
-	        rod_x, rod_y, rod_z,
-			label     = "Pendulum Rod",
-	        linecolor = :green,
-	        linewidth = 3,
-	    )
-
-		scatter3d!([r_x[index]], [r_y[index]], [r_z[index]],
-	        label       = "Bob",
-	        markercolor = :red,
-	        markersize  = 6,
-	    )
-	
-	    plot3d!(vertical_x, vertical_y, vertical_z,
-	        label        = "Frame",
-	        linecolor    = :black,
-	        linewidth    = 3,
-	    )
-	
-	    plot3d!(arm_x, arm_y, arm_z,
-			label     = "Rotating Arm",
-			linecolor = :black,
-			linewidth = 3,
-	    )
-	
-	    
-	end
+        plot3d!(arm_x, arm_y, arm_z; label=false, linecolor=:black, linewidth=3)
+    end
 end
 
 # ╔═╡ 077d3892-d766-4011-8ed4-c04969e8acb8
@@ -3289,24 +3307,27 @@ version = "1.13.0+0"
 # ╠═548d67a6-4e91-4d1f-a407-18818a85708a
 # ╠═e2dfc44a-dd64-4527-af83-f7e5296c0768
 # ╟─91003e71-8208-43d3-93be-dd2c141c37b5
+# ╟─10a5cd81-cf5d-43f0-ac36-413883e8edc6
 # ╠═910c7d40-5d28-448e-aaf7-486bb000f478
-# ╟─e28f72c0-7df2-4029-ab2a-4f21f2bade62
+# ╟─431af16c-4fc6-4132-bb2a-d1b3d8cb7449
 # ╠═cbd246ac-cbc8-4301-b224-87e92f7912b5
 # ╟─89408ad5-0f4f-4bf9-bfaf-5ef3fdf1791d
 # ╠═342f30ae-5a57-4330-8a18-8a9b1eabd74f
 # ╟─d8d43e4b-a976-4535-a3f0-c2230fd55631
 # ╠═21a2c22e-99a7-46b5-b898-22028948e114
-# ╟─2c97d2eb-070c-499f-8bbc-9f650953ccd1
-# ╟─9a46c115-04c9-42cc-9592-5f9d08014735
+# ╟─3d6eba50-ea46-477f-a0a8-3540b4347613
 # ╠═61500b9e-061e-4412-9fa7-9931ad27bee4
 # ╟─107838fd-dc24-4b35-bc0f-531cfc6362f2
 # ╠═242302eb-fe7e-4c20-83a2-f5a976fbbac9
+# ╟─5372ab06-f49d-4c3d-b8ed-b90b330b06c3
 # ╠═28406b28-a701-4b46-8620-5df4a5dc70ae
 # ╠═8776d0cc-f9fb-43ee-babe-b77ec4f189ce
-# ╟─1a7f4f86-3dc5-4bd3-a25a-4a8f6a96e14e
-# ╟─3b72fdac-c439-4755-b501-dc1de46f4414
+# ╟─d7e26221-4d25-465c-96d7-d3c10261c13b
+# ╠═1a7f4f86-3dc5-4bd3-a25a-4a8f6a96e14e
+# ╠═3b72fdac-c439-4755-b501-dc1de46f4414
+# ╟─68bf1ff8-9698-4f89-8198-4c68cfd6adbc
 # ╠═fcd29939-01e8-42ae-8fef-f70ca60eebef
-# ╟─ce3510bf-40ff-40fb-8394-a22fe3eebc48
+# ╠═ce3510bf-40ff-40fb-8394-a22fe3eebc48
 # ╠═077d3892-d766-4011-8ed4-c04969e8acb8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
