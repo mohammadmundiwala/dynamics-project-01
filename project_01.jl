@@ -200,13 +200,13 @@ end #
 # ╔═╡ 8776d0cc-f9fb-43ee-babe-b77ec4f189ce
 # setting up initial conditions and running ODE solver
 begin
-    u0    = [x1 => 0.5, x2 => 0.0]   # initial θ and θ_dot
-    tspan = (0.0, 13.0) #time interval. I changed this to 0-13s (roughly 1 full rotation according to .gif) - JG
+    u0 = [x1 => 0.5, x2 => 0.0]   # initial θ and θ_dot
+    tspan = (0.0, 13.0) #time interval. I changed this to 0-13s (roughly 1 full rotation according to .gif- slow rotation) 
 
     p_vals = Dict(L => 0.15, g => 9.8, Ω => 2.0, m => 0.1, w1 => 0.1, h1 => 0.2)
 
-    p_slow = merge(p_vals, Dict(Ω => 0.5))
-    p_fast = merge(p_vals, Dict(Ω => 8.0))
+    p_slow = merge(p_vals, Dict(Ω => 0.5)) #CHANGE speed HERE
+    p_fast = merge(p_vals, Dict(Ω => 2.5)) #CHANGE speed HERE
 
     prob_slow = ODEProblem(sys, merge(Dict(u0), p_slow), tspan)
     prob_fast = ODEProblem(sys, merge(Dict(u0), p_fast), tspan)
@@ -214,31 +214,17 @@ begin
     sol_slow = solve(prob_slow, RK4(); reltol=1e-6, abstol=1e-8, saveat=0.0333)
     sol_fast = solve(prob_fast, RK4(); reltol=1e-6, abstol=1e-8, saveat=0.0333)
 
-    # optional: pick which one you want the rest of the notebook to use
-    solution = sol_slow   # or sol_fast
 end; #added ; here to toggle output - JG
 
-# ╔═╡ d7e26221-4d25-465c-96d7-d3c10261c13b
+# ╔═╡ 23a7d525-9815-4255-aed9-f8f6a867c5c9
 md"""
-##### Plotting
-Plots include angle and angular velocity as a function of time.
+##### Plots and .gif setup
 """
 
-# ╔═╡ 1a7f4f86-3dc5-4bd3-a25a-4a8f6a96e14e
-Plots.plot(solution, idxs=[x1], xlabel="t", ylabel="θ (rad)", title="Angle vs. Time")
-
-# ╔═╡ 3b72fdac-c439-4755-b501-dc1de46f4414
-Plots.plot(solution, idxs=[x2], xlabel="t", ylabel="θ/s (rad/sec)", title="Angular Velocity vs. Time")
-
-# ╔═╡ 68bf1ff8-9698-4f89-8198-4c68cfd6adbc
-md"""
-##### .gif Generation
-"""
-
-# ╔═╡ fcd29939-01e8-42ae-8fef-f70ca60eebef
+# ╔═╡ e1d508be-9dae-4ceb-bf42-9aeee1dee5ae
 begin # Need everything numerically for gif generation
-	θ_vals = solution[x1]
-	t_vals = solution.t
+	θ_vals = sol_slow[x1]
+	t_vals = sol_slow.t
 	p_use = p_slow      
 	φ_vals = p_use[Ω] .* t_vals
 	
@@ -249,55 +235,114 @@ begin # Need everything numerically for gif generation
 	frame_top_x_values = p_vals[w1] .* cos.(φ_vals)
 	frame_top_y_values = p_vals[w1] .* sin.(φ_vals)
 	frame_top_z_values = fill(p_vals[h1], length(t_vals))
+	
+	θ_slow = sol_slow[x1]
+	t_slow = sol_slow.t
+	
+	θ_fast = sol_fast[x1]
+	t_fast = sol_fast.t
 end
 
-# ╔═╡ ce3510bf-40ff-40fb-8394-a22fe3eebc48
-begin
+# ╔═╡ 05319cbe-64b8-439b-8c03-faa5341adda9
+function create_pendulum_animation(sol, p_vals, p_use, title_suffix)
+
+    t_vals = sol.t
+    θ_vals = sol[x1]
+    φ_vals = p_use[Ω] .* t_vals
+    
+    r_x = p_vals[L] .* sin.(θ_vals) .* cos.(φ_vals) .+ p_vals[w1] .* cos.(φ_vals)
+    r_y = p_vals[L] .* sin.(θ_vals) .* sin.(φ_vals) .+ p_vals[w1] .* sin.(φ_vals)
+    r_z = -p_vals[L] .* cos.(θ_vals) .+ p_vals[h1]
+
+    frame_x = p_vals[w1] .* cos.(φ_vals)
+    frame_y = p_vals[w1] .* sin.(φ_vals)
     max_radius = p_vals[L] + p_vals[w1]
 
-    pendulum_animation = @animate for index in eachindex(t_vals)
-        vertical_x = [0.0, 0.0]
-        vertical_y = [0.0, 0.0]
-        vertical_z = [0.0, p_vals[h1]]
+    anim = @animate for i in eachindex(t_vals)
 
-        arm_x = [0.0, frame_top_x_values[index]]
-        arm_y = [0.0, frame_top_y_values[index]]
-        arm_z = [p_vals[h1], frame_top_z_values[index]]
-
-        rod_x = [frame_top_x_values[index], r_x[index]]
-        rod_y = [frame_top_y_values[index], r_y[index]]
-        rod_z = [frame_top_z_values[index], r_z[index]]
-
-        trace_x = r_x[1:index]
-        trace_y = r_y[1:index]
-        trace_z = r_z[1:index]
-
-        plot3d(
-            trace_x, trace_y, trace_z;
-            label="Trace",
-            linestyle=:dot,
-            linecolor=:blue,
-            linewidth=2,
+        # pendulum
+        p_anim = plot3d(r_x[1:i], r_y[1:i], r_z[1:i],
+            label="Trace", linestyle=:dot,
             xlim=(-max_radius, max_radius),
             ylim=(-max_radius, max_radius),
-            zlim=(0.0, p_vals[h1] + p_vals[L] + 0.1),
+            zlim=(0.0, p_vals[h1] + p_vals[L]),
             aspect_ratio=:equal,
-            xlabel="x",
-            ylabel="y",
-            zlabel="z",
-            title="3D Pendulum on Rotating Frame (t = $(round(t_vals[index]; digits=2)) s)"
-        )
-		
-		plot3d!(rod_x, rod_y, rod_z; label="Pendulum", linecolor=:green, linewidth=3)
-		plot3d!(vertical_x, vertical_y, vertical_z; label="Frame", linecolor=:black, linewidth=3)
-		scatter3d!([r_x[index]], [r_y[index]], [r_z[index]]; label="Ball", markercolor=:red, markersize=6)
+            title="Pendulum ($title_suffix)")
 
-        plot3d!(arm_x, arm_y, arm_z; label=false, linecolor=:black, linewidth=3)
+        plot3d!([0, 0, frame_x[i]], [0, 0, frame_y[i]], [0, p_vals[h1], p_vals[h1]],label=false, color=:black, 		lw=3)
+
+        plot3d!([frame_x[i], r_x[i]], [frame_y[i], r_y[i]], [p_vals[h1], r_z[i]],label=false, color=:green, lw=3)
+
+        scatter3d!([r_x[i]], [r_y[i]], [r_z[i]],label=false, color=:red, ms=6)
+
+
+        #2d plots
+        plt1 = Plots.plot(sol.t[1:i], sol[x1][1:i],xlabel="t", ylabel="θ (rad)",title="Angle vs Time",legend=false,guidefontsize=12,tickfontsize=12,xlims=(0, 13),ylims=(-1, 1))
+
+        plt2 = Plots.plot(sol.t[1:i], sol[x2][1:i],xlabel="t", ylabel="θ̇ (rad/sec)",title="Angular Velocity vs Time",legend=false,guidefontsize=12,tickfontsize=12,xlims=(0, 13),ylims=(-4, 4))
+
+        right_panel = plot(plt1, plt2,layout=(2,1),margin=5Plots.mm)
+
+
+        #plot gif and two 2d plots together
+        plot(p_anim, right_panel,layout=(1,2),size=(1200, 500))
     end
+    return anim
 end
 
-# ╔═╡ 077d3892-d766-4011-8ed4-c04969e8acb8
-gif(pendulum_animation, "pendulum_3d.gif", fps=30)
+# ╔═╡ 1de86af2-adda-444a-a1fe-1201872daa6d
+begin
+	anim_slow = create_pendulum_animation(sol_slow, p_vals, p_slow, "Slow")
+	anim_fast = create_pendulum_animation(sol_fast, p_vals, p_fast, "Fast")
+end
+
+# ╔═╡ d7e26221-4d25-465c-96d7-d3c10261c13b
+md"""
+##### Plotting & .gif Generation - "Slow" Solution
+Plots include angle and angular velocity as a function of time.
+"""
+
+# ╔═╡ 2c56e9c4-3048-46e7-b851-bd2a78a0ed11
+gif(anim_slow, "pendulum_slow.gif", fps=30)
+
+# ╔═╡ f351a815-b9ea-4595-8f57-7cd7f02681cf
+md"""
+##### Plotting & .gif Generation - "Fast" Solution
+Plots include angle and angular velocity as a function of time.
+"""
+
+# ╔═╡ ccf3ef6f-0878-4608-b83e-2811fbc12f13
+gif(anim_fast, "pendulum_fast.gif", fps=30)
+
+# ╔═╡ cbcb8c25-86b0-43dd-9110-ac1dda6453d1
+md"""
+#### Static Plots:
+Added static versions of angle & angular velocity vs. time for clarity
+"""
+
+# ╔═╡ 283e6c4e-3dcc-4ba0-b5ce-6177da2256ce
+md"""
+##### "Slow" Solution:
+"""
+
+# ╔═╡ 627fa4ac-9539-4020-a994-74692669402f
+begin
+	plt1_fast= Plots.plot(sol_fast, idxs=[x1], xlabel="t", ylabel="θ (rad)", title="Angle vs. Time",legend = false,guidefontsize=12,tickfontsize=10)
+	plt2_fast= Plots.plot(sol_fast, idxs=[x2], xlabel="t", ylabel="θ/s (rad/sec)", title="Angular Velocity vs. Time",legend=false,guidefontsize=12,tickfontsize=10)
+	plot(plt1_fast, plt2_fast, layout=(2,1),size = (800,400),margin = 5Plots.mm)
+end
+
+# ╔═╡ cc7be0d9-2db0-42ad-857d-1cc304ae58cd
+md"""
+##### "Fast" Solution:
+"""
+
+# ╔═╡ d8ed26fa-e3f1-4766-b858-40bc8fec1317
+begin
+	plt1_slow= Plots.plot(sol_slow, idxs=[x1], xlabel="t", ylabel="θ (rad)", title="Angle vs. Time",legend=false,guidefontsize=12,tickfontsize=10)
+	plt2_slow= Plots.plot(sol_slow, idxs=[x2], xlabel="t", ylabel="θ/s (rad/sec)", title="Angular Velocity vs. Time",legend=false,guidefontsize=12,tickfontsize=10)
+	plot(plt1_slow, plt2_slow, layout=(2,1),size = (800,400),margin = 5Plots.mm)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3322,12 +3367,18 @@ version = "1.13.0+0"
 # ╟─5372ab06-f49d-4c3d-b8ed-b90b330b06c3
 # ╠═28406b28-a701-4b46-8620-5df4a5dc70ae
 # ╠═8776d0cc-f9fb-43ee-babe-b77ec4f189ce
+# ╟─23a7d525-9815-4255-aed9-f8f6a867c5c9
+# ╠═e1d508be-9dae-4ceb-bf42-9aeee1dee5ae
+# ╠═05319cbe-64b8-439b-8c03-faa5341adda9
+# ╠═1de86af2-adda-444a-a1fe-1201872daa6d
 # ╟─d7e26221-4d25-465c-96d7-d3c10261c13b
-# ╠═1a7f4f86-3dc5-4bd3-a25a-4a8f6a96e14e
-# ╠═3b72fdac-c439-4755-b501-dc1de46f4414
-# ╟─68bf1ff8-9698-4f89-8198-4c68cfd6adbc
-# ╠═fcd29939-01e8-42ae-8fef-f70ca60eebef
-# ╠═ce3510bf-40ff-40fb-8394-a22fe3eebc48
-# ╠═077d3892-d766-4011-8ed4-c04969e8acb8
+# ╠═2c56e9c4-3048-46e7-b851-bd2a78a0ed11
+# ╟─f351a815-b9ea-4595-8f57-7cd7f02681cf
+# ╠═ccf3ef6f-0878-4608-b83e-2811fbc12f13
+# ╟─cbcb8c25-86b0-43dd-9110-ac1dda6453d1
+# ╟─283e6c4e-3dcc-4ba0-b5ce-6177da2256ce
+# ╠═627fa4ac-9539-4020-a994-74692669402f
+# ╟─cc7be0d9-2db0-42ad-857d-1cc304ae58cd
+# ╠═d8ed26fa-e3f1-4766-b858-40bc8fec1317
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
