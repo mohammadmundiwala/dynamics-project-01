@@ -28,19 +28,6 @@ Your team's goal is to
 
 """
 
-# ╔═╡ e60241b5-d35a-495a-ae92-edb846c41bb8
-md"""# Things To Add
-
-Hey Everyone! 
-
-I've added in the basic equations going through the coordinate system definition and lagrangian definition up to a 3d animation of the pendulum. 
-
-Please feel free to add on whatever you think would be nice, whether it would be more explainations for certain sections, or possibly adding dampeners.
-
-For now, if you don't have any ideas what to do, try adding a dampener to the equation and rederive the lagrange expression, or then you can animate it in 3d the same way the basic one was. You can also plot more variables or try to mess with initial conditions to see how the system responds.
-
-"""
-
 # ╔═╡ 548d67a6-4e91-4d1f-a407-18818a85708a
 import Latexify
 
@@ -267,7 +254,7 @@ function create_pendulum_animation(sol, p_vals, p_use, title_suffix)
             ylim=(-max_radius, max_radius),
             zlim=(0.0, p_vals[h1] + p_vals[L]),
             aspect_ratio=:equal,
-            title="Pendulum ($title_suffix)")
+            title="Pendulum Animation ($title_suffix)")
 
         plot3d!([0, 0, frame_x[i]], [0, 0, frame_y[i]], [0, p_vals[h1], p_vals[h1]],label=false, color=:black, 		lw=3)
 
@@ -292,8 +279,9 @@ end
 
 # ╔═╡ 1de86af2-adda-444a-a1fe-1201872daa6d
 begin
-	anim_slow = create_pendulum_animation(sol_slow, p_vals, p_slow, "Slow")
-	anim_fast = create_pendulum_animation(sol_fast, p_vals, p_fast, "Fast")
+	anim_slow = create_pendulum_animation(sol_slow, p_vals, p_slow, "Ω = $(p_slow[Ω]) rad/s")
+	
+	anim_fast = create_pendulum_animation(sol_fast, p_vals, p_fast, "Ω = $(p_fast[Ω]) rad/s")
 end
 
 # ╔═╡ d7e26221-4d25-465c-96d7-d3c10261c13b
@@ -3346,8 +3334,7 @@ version = "1.13.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═f17103ea-06bf-11f1-a2b0-79e68ed152eb
-# ╟─e60241b5-d35a-495a-ae92-edb846c41bb8
+# ╟─f17103ea-06bf-11f1-a2b0-79e68ed152eb
 # ╠═0d9be664-d7c5-4084-add2-25e5418742d6
 # ╠═548d67a6-4e91-4d1f-a407-18818a85708a
 # ╠═e2dfc44a-dd64-4527-af83-f7e5296c0768
