@@ -61,7 +61,7 @@ The code block below incorporates these ideas.
 # ╔═╡ 910c7d40-5d28-448e-aaf7-486bb000f478
 # definining variables and basic equations.
 begin
-	@parameters L h1 w1 m g Ω
+	@parameters L h1 w1 m g Ω c
 	@independent_variables t
 	@variables θ(t)
 	D = Differential(t)
@@ -135,6 +135,7 @@ begin
 	v = D.(r)
 	T = m/2*sum(v .* v)
 	V = m*g*h
+	D_ray = 1//2 * c * θ_dot^2 
 	Lag = expand_derivatives(T - V)
 end
 
@@ -147,12 +148,33 @@ $\frac{d}{dt}\left( \frac{d L}{d \dot{\theta}} \right) - \frac{d L}{d \theta}= 0
 
 """
 
+# ╔═╡ 959b6587-afc6-4930-a511-4f8330db663a
+md"""
+Optionally, we introduce non-conservative forces to model energy dissipation by using a Rayleigh dissipation function. This models linear, viscous damping at the hinge and is defined as
+
+$\mathcal{D} = \tfrac{1}{2} c\,\dot{\theta}^2,$
+
+where $c$ is the damping coefficient. 
+
+The Euler–Lagrange equation is then modified to include the dissipative contribution:
+
+$\frac{d}{dt}\!\left(\frac{\partial L}{\partial \dot{\theta}}\right)
+-
+\frac{\partial L}{\partial \theta}
++
+\frac{\partial \mathcal{D}}{\partial \dot{\theta}}
+= 0.$
+
+The additional term adds a viscous damping which removes kinetic energy over time
+"""
+
 # ╔═╡ 242302eb-fe7e-4c20-83a2-f5a976fbbac9
 # performing euler-lagrange equation
 begin
 	dL_dθ = Symbolics.derivative(Lag, θ)
 	dL_dθ_dot = Symbolics.derivative(Lag, θ_dot)
-	el_eq = expand_derivatives(D(dL_dθ_dot) - dL_dθ)
+	dD_dθ_dot = Symbolics.derivative(D_ray, θ_dot)
+	el_eq = expand_derivatives(D(dL_dθ_dot) - dL_dθ + dD_dθ_dot)
 	sol = simplify(solve_for(el_eq ~ 0, θ_dot_dot))
 end
 
@@ -180,7 +202,7 @@ begin
 		D(x1) ~ x2,
 		D(x2) ~ rhs_expr
 	]
-	@named sys = ODESystem(eqs, t, [x1, x2], [L, g, Ω, m, w1, h1])
+	@named sys = ODESystem(eqs, t, [x1, x2], [L, g, Ω, m, w1, h1, c])
 	sys = structural_simplify(sys)
 end #
 
@@ -190,7 +212,7 @@ begin
     u0 = [x1 => 0.5, x2 => 0.0]   # initial θ and θ_dot
     tspan = (0.0, 13.0) #time interval. I changed this to 0-13s (roughly 1 full rotation according to .gif- slow rotation) 
 
-    p_vals = Dict(L => 0.15, g => 9.8, Ω => 2.0, m => 0.1, w1 => 0.1, h1 => 0.2)
+    p_vals = Dict(L => 0.15, g => 9.8, Ω => 2.0, m => 0.1, w1 => 0.1, h1 => 0.2, c=>0.001)
 
     p_slow = merge(p_vals, Dict(Ω => 0.5)) #CHANGE speed HERE
     p_fast = merge(p_vals, Dict(Ω => 2.5)) #CHANGE speed HERE
@@ -291,7 +313,7 @@ Plots include angle and angular velocity as a function of time.
 """
 
 # ╔═╡ 2c56e9c4-3048-46e7-b851-bd2a78a0ed11
-gif(anim_slow, "pendulum_slow.gif", fps=30)
+gif(anim_slow, "visuals/pendulum_slow_damped.gif", fps=30)
 
 # ╔═╡ f351a815-b9ea-4595-8f57-7cd7f02681cf
 md"""
@@ -300,7 +322,7 @@ Plots include angle and angular velocity as a function of time.
 """
 
 # ╔═╡ ccf3ef6f-0878-4608-b83e-2811fbc12f13
-gif(anim_fast, "pendulum_fast.gif", fps=30)
+gif(anim_fast, "visuals/pendulum_fast_damped.gif", fps=30)
 
 # ╔═╡ cbcb8c25-86b0-43dd-9110-ac1dda6453d1
 md"""
@@ -353,9 +375,9 @@ Symbolics = "~7.8.0"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.6"
+julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "3f553cfc764a6987dc94d5beca39e66ebb80e3f6"
+project_hash = "519c4d981c804d986924ec2e52cddd4be394ac21"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -709,7 +731,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.1.1+0"
+version = "1.3.0+1"
 
 [[deps.CompositeTypes]]
 git-tree-sha1 = "bce26c3dab336582805503bed209faab1c279768"
@@ -970,7 +992,7 @@ version = "0.7.16"
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
-version = "1.6.0"
+version = "1.7.0"
 
 [[deps.DynamicPolynomials]]
 deps = ["Future", "LinearAlgebra", "MultivariatePolynomials", "MutableArithmetics", "Reexport", "Test"]
@@ -1418,6 +1440,11 @@ git-tree-sha1 = "b6893345fd6658c8e475d40155789f4860ac3b21"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "3.1.4+0"
 
+[[deps.JuliaSyntaxHighlighting]]
+deps = ["StyledStrings"]
+uuid = "ac6e5ff7-fb65-4e79-a425-ec3bc9c03011"
+version = "1.12.0"
+
 [[deps.JumpProcesses]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqCallbacks", "DocStringExtensions", "FunctionWrappers", "Graphs", "LinearAlgebra", "PoissonRandom", "Random", "RecursiveArrayTools", "Reexport", "SciMLBase", "StaticArrays", "SymbolicIndexingInterface"]
 git-tree-sha1 = "3dee0073e2512598de97a98f5f30126cd7bdd9a7"
@@ -1532,24 +1559,24 @@ uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
 version = "0.6.4"
 
 [[deps.LibCURL_jll]]
-deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
+deps = ["Artifacts", "LibSSH2_jll", "Libdl", "OpenSSL_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "8.6.0+0"
+version = "8.15.0+0"
 
 [[deps.LibGit2]]
-deps = ["Base64", "LibGit2_jll", "NetworkOptions", "Printf", "SHA"]
+deps = ["LibGit2_jll", "NetworkOptions", "Printf", "SHA"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 version = "1.11.0"
 
 [[deps.LibGit2_jll]]
-deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll"]
+deps = ["Artifacts", "LibSSH2_jll", "Libdl", "OpenSSL_jll"]
 uuid = "e37daf67-58a4-590a-8e99-b0245dd2ffc5"
-version = "1.7.2+0"
+version = "1.9.0+0"
 
 [[deps.LibSSH2_jll]]
-deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
+deps = ["Artifacts", "Libdl", "OpenSSL_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.11.0+1"
+version = "1.11.3+1"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -1610,7 +1637,7 @@ version = "7.6.0"
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-version = "1.11.0"
+version = "1.12.0"
 
 [[deps.LinearSolve]]
 deps = ["ArrayInterface", "ChainRulesCore", "ConcreteStructs", "DocStringExtensions", "EnumX", "GPUArraysCore", "InteractiveUtils", "Krylov", "Libdl", "LinearAlgebra", "MKL_jll", "Markdown", "OpenBLAS_jll", "PrecompileTools", "Preferences", "RecursiveArrayTools", "Reexport", "SciMLBase", "SciMLLogging", "SciMLOperators", "Setfield", "StaticArraysCore"]
@@ -1712,7 +1739,7 @@ uuid = "d125e4d3-2237-4719-b19c-fa641b8a4667"
 version = "0.1.8"
 
 [[deps.Markdown]]
-deps = ["Base64"]
+deps = ["Base64", "JuliaSyntaxHighlighting", "StyledStrings"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
 
@@ -1743,7 +1770,8 @@ uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
 version = "1.1.10"
 
 [[deps.MbedTLS_jll]]
-deps = ["Artifacts", "Libdl"]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "926c6af3a037c68d02596a44c22ec3595f5f760b"
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 version = "2.28.6+0"
 
@@ -1824,7 +1852,7 @@ version = "0.3.7"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2023.12.12"
+version = "2025.11.4"
 
 [[deps.MuladdMacro]]
 git-tree-sha1 = "cac9cc5499c25554cba55cd3c30543cff5ca4fab"
@@ -1861,7 +1889,7 @@ version = "1.1.3"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
-version = "1.2.0"
+version = "1.3.0"
 
 [[deps.NonlinearSolve]]
 deps = ["ADTypes", "ArrayInterface", "BracketingNonlinearSolve", "CommonSolve", "ConcreteStructs", "DifferentiationInterface", "FastClosures", "FiniteDiff", "ForwardDiff", "LineSearch", "LinearAlgebra", "LinearSolve", "NonlinearSolveBase", "NonlinearSolveFirstOrder", "NonlinearSolveQuasiNewton", "NonlinearSolveSpectralMethods", "PrecompileTools", "Preferences", "Reexport", "SciMLBase", "SciMLLogging", "SimpleNonlinearSolve", "StaticArraysCore", "SymbolicIndexingInterface"]
@@ -1978,12 +2006,12 @@ version = "0.3.30+0"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.27+1"
+version = "0.3.29+0"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.5+0"
+version = "0.8.7+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "NetworkOptions", "OpenSSL_jll", "Sockets"]
@@ -1992,10 +2020,9 @@ uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
 version = "1.6.1"
 
 [[deps.OpenSSL_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "c9cbeda6aceffc52d8a0017e71db27c7a7c0beaf"
+deps = ["Artifacts", "Libdl"]
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "3.5.5+0"
+version = "3.5.4+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
@@ -2241,7 +2268,7 @@ version = "1.11.0"
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
-version = "10.42.0+1"
+version = "10.44.0+1"
 
 [[deps.PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
@@ -2274,7 +2301,7 @@ version = "0.44.2+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "Random", "SHA", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.11.0"
+version = "1.12.1"
 weakdeps = ["REPL"]
 
     [deps.Pkg.extensions]
@@ -2421,7 +2448,7 @@ weakdeps = ["Distributions"]
     QuasiMonteCarloDistributionsExt = "Distributions"
 
 [[deps.REPL]]
-deps = ["InteractiveUtils", "Markdown", "Sockets", "StyledStrings", "Unicode"]
+deps = ["InteractiveUtils", "JuliaSyntaxHighlighting", "Markdown", "Sockets", "StyledStrings", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 version = "1.11.0"
 
@@ -2700,7 +2727,7 @@ version = "1.2.2"
 [[deps.SparseArrays]]
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-version = "1.11.0"
+version = "1.12.0"
 
 [[deps.SparseConnectivityTracer]]
 deps = ["ADTypes", "DocStringExtensions", "FillArrays", "LinearAlgebra", "Random", "SparseArrays"]
@@ -2884,7 +2911,7 @@ version = "7.12.1+0"
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
-version = "7.7.0+0"
+version = "7.8.3+2"
 
 [[deps.Sundials]]
 deps = ["Accessors", "ArrayInterface", "CEnum", "DataStructures", "DiffEqBase", "Libdl", "LinearAlgebra", "LinearSolve", "Logging", "NonlinearSolveBase", "PrecompileTools", "Reexport", "SciMLBase", "SparseArrays", "Sundials_jll", "SymbolicIndexingInterface"]
@@ -3219,7 +3246,7 @@ version = "1.6.0+0"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
-version = "1.2.13+1"
+version = "1.3.1+2"
 
 [[deps.Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -3254,7 +3281,7 @@ version = "0.17.4+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.11.0+0"
+version = "5.15.0+0"
 
 [[deps.libdecor_jll]]
 deps = ["Artifacts", "Dbus_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pango_jll", "Wayland_jll", "xkbcommon_jll"]
@@ -3301,7 +3328,7 @@ version = "1.1.7+0"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.59.0+0"
+version = "1.64.0+1"
 
 [[deps.oneTBB_jll]]
 deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl"]
@@ -3310,9 +3337,9 @@ uuid = "1317d2d5-d96f-522e-a858-c73665f53c3e"
 version = "2022.0.0+1"
 
 [[deps.p7zip_jll]]
-deps = ["Artifacts", "Libdl"]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
-version = "17.4.0+2"
+version = "17.7.0+0"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -3350,6 +3377,7 @@ version = "1.13.0+0"
 # ╟─3d6eba50-ea46-477f-a0a8-3540b4347613
 # ╠═61500b9e-061e-4412-9fa7-9931ad27bee4
 # ╟─107838fd-dc24-4b35-bc0f-531cfc6362f2
+# ╟─959b6587-afc6-4930-a511-4f8330db663a
 # ╠═242302eb-fe7e-4c20-83a2-f5a976fbbac9
 # ╟─5372ab06-f49d-4c3d-b8ed-b90b330b06c3
 # ╠═28406b28-a701-4b46-8620-5df4a5dc70ae
